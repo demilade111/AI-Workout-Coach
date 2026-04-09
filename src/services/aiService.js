@@ -1,12 +1,17 @@
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
 export async function generateWorkoutPlan(userProfile) {
   const prompt = buildWorkoutPrompt(userProfile);
 
+  if (GROQ_API_KEY) {
+    return callGroq(prompt);
+  }
   if (OPENAI_API_KEY) {
     return callOpenAI(prompt);
   }
@@ -68,6 +73,29 @@ async function callOpenAI(prompt) {
 
   if (!response.ok) {
     throw new Error(`OpenAI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return JSON.parse(data.choices[0].message.content);
+}
+
+async function callGroq(prompt) {
+  const response = await fetch(GROQ_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'llama3-70b-8192',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Groq API error: ${response.status}`);
   }
 
   const data = await response.json();
